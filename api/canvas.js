@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const response = await fetch(url, { headers: { "User-Agent": "IoBot" } });
+    const response = await fetch(url, { headers: { "User-Agent": "IoBot" }, signal: AbortSignal.timeout(8000) }); // give up after 8 s
     if (!response.ok) throw new Error(`Canvas returned HTTP ${response.status}`);
     const today = new Date(Date.now() + HONOLULU_OFFSET_MINUTES * 60000).toISOString().slice(0, 10);
     res.status(200).json(readCanvasFeed(await response.text(), today));

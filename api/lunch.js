@@ -23,7 +23,7 @@ let memory = null;
 async function pdfText(url) {
   // unpdf is an ES module, so we load it with import() from this CommonJS file.
   const { getDocumentProxy, extractText } = await import("unpdf");
-  const response = await fetch(url, { headers: { "User-Agent": "IoBot" } });
+  const response = await fetch(url, { headers: { "User-Agent": "IoBot" }, signal: AbortSignal.timeout(15000) }); // give up after 15 s
   if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}`);
   const pdf = await getDocumentProxy(new Uint8Array(await response.arrayBuffer()));
   const { text } = await extractText(pdf, { mergePages: true });

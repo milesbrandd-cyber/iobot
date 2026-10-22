@@ -28,7 +28,9 @@ function honoluluToday() {
 async function loadSchedule() {
   if (memory && Date.now() - memory.fetchedAt < TEN_MINUTES) return memory.data;
 
-  const response = await fetch(FEED_URL, { headers: { "User-Agent": "IoBot bell schedule" } });
+  // The feed is ~5.8 MB. Give up after 25 s so a stuck download falls back to the
+  // last good copy instead of hanging until Vercel stops the function.
+  const response = await fetch(FEED_URL, { headers: { "User-Agent": "IoBot bell schedule" }, signal: AbortSignal.timeout(25000) });
   if (!response.ok) throw new Error(`Feed returned HTTP ${response.status}`);
   const text = await response.text();
 
