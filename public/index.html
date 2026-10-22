@@ -39,7 +39,8 @@
 
   <main class="layout">
     <section class="col col-main">
-      <div class="now" id="now" aria-live="polite"></div>
+      <div class="now" id="now"></div>
+      <p class="sr-only" id="announce" aria-live="polite"></p>
       <p class="notice" id="notice" hidden></p>
       <section class="card" id="lunchCard" hidden>
         <h2>Lunch</h2>
@@ -71,7 +72,7 @@
     <form method="dialog" class="sheet-body" id="settingsForm">
       <header class="sheet-head">
         <h2 id="settingsTitle">Your IoBot</h2>
-        <button class="iconbtn" value="close" aria-label="Close settings">✕</button>
+        <button type="button" class="iconbtn" data-close="settings" aria-label="Close settings">✕</button>
       </header>
 
       <fieldset>
@@ -91,6 +92,7 @@
         </div>
         <p class="status" id="canvasStatus" role="status"></p>
         <label class="switch"><input type="checkbox" id="showAssignments"> <span>Show assignments due</span></label>
+        <button type="button" id="unhideAll" class="btn secondary" hidden></button>
       </fieldset>
 
       <fieldset>
@@ -116,10 +118,10 @@
 
   <!-- Edit one assignment: notes like "handwritten", a new due date, done, or hide -->
   <dialog id="assignmentSheet" class="sheet" aria-labelledby="editHeading">
-    <form method="dialog" class="sheet-body">
+    <form method="dialog" class="sheet-body" id="editForm">
       <header class="sheet-head">
         <h2 id="editHeading">Edit assignment</h2>
-        <button class="iconbtn" value="close" aria-label="Close">✕</button>
+        <button type="button" class="iconbtn" data-close="assignmentSheet" aria-label="Close">✕</button>
       </header>
       <p class="help" id="editCourse"></p>
       <label class="field"><span>Title</span><input type="text" id="editTitle"></label>
@@ -127,7 +129,7 @@
       <label class="field"><span>Due date</span><input type="date" id="editDate"></label>
       <label class="switch"><input type="checkbox" id="editDone"> <span>Done</span></label>
       <div class="row">
-        <button type="button" id="editSave" class="btn">Save</button>
+        <button type="submit" id="editSave" class="btn">Save</button>
         <button type="button" id="editHide" class="btn secondary">Hide</button>
         <button type="button" id="editReset" class="btn secondary">Reset to Canvas</button>
       </div>
