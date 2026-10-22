@@ -113,10 +113,21 @@ function renderNow() {
     el.classList.add("quiet");
     const nextDate = nextSchoolDay(days(), state.selected);
     const next = nextDate && days()[nextDate];
-    el.innerHTML = `<div><p class="lead">Classes are done for today</p><p class="big">See you tomorrow</p></div>
+    // "See you tomorrow" only when the next school day really is tomorrow (not on a Friday).
+    const seeYou = !nextDate ? "See you soon" : nextDate === addDays(state.selected, 1) ? "See you tomorrow" : `See you ${formatDate(nextDate, { weekday: "long" })}`;
+    el.innerHTML = `<div><p class="lead">Classes are done for today</p><p class="big">${seeYou}</p></div>
       ${next ? `<div class="next"><span>${formatDate(nextDate, { weekday: "long" })}</span><b>${esc(dayTitle(next))}${next.blocks[0] ? `, starts ${t(next.blocks[0].start)}` : ""}</b></div>` : ""}`;
   }
+  announce(s);
   return s;
+}
+
+/** Tell screen readers when the block changes (not every second, which would be noise). */
+function announce(s) {
+  const text = s.state === "in" ? `Now ${s.current.title}, until ${t(s.current.end)}`
+    : s.state === "passing" || s.state === "before" ? `Next: ${s.next.title} at ${t(s.next.start)}`
+    : "Classes are done for today";
+  if ($("announce").textContent !== text) $("announce").textContent = text;
 }
 
 // ---------- Timeline ----------
@@ -249,11 +260,13 @@ async function refreshCanvas(force) {
   const url = state.settings.canvasUrl;
   if (!url) return;
   const age = state.canvas && state.canvas.fetchedAt ? Date.now() - Date.parse(state.canvas.fetchedAt) : Infinity;
-  if (!force && age < 30 * 60000) return;
+  // Data saved by an older version of IoBot has no course list or assignment IDs; refresh it now.
+  const outdated = state.canvas && !state.canvas.courses;
+  if (!force && !outdated && age < 30 * 60000) return;
   try {
     const data = await loadCanvas(url);
     state.canvas = { ...data, fetchedAt: new Date().toISOString() };
-    mergeCanvasClasses(data.classes);
+    mergeCanvasClasses(data.courses);
     setCanvasStatus(describeCanvas(data), false);
     render();
   } catch (err) {
@@ -261,16 +274,17 @@ async function refreshCanvas(force) {
   }
 }
 
-/** Canvas fills in class names; anything the student typed themselves wins. */
-function mergeCanvasClasses(classes) {
+/**
+ * Canvas fills in class names for the periods it knows. The student always wins:
+ * we skip a course whose period they picked themselves, and any period they renamed.
+ */
+function mergeCanvasClasses(courses) {
   const mine = state.settings.classes;
-  for (const [period, c] of Object.entries(classes || {})) {
-    const existing = mine[period] || {};
+  for (const c of courses || []) {
+    if (!c.period || c.key in state.settings.coursePeriods) continue;
+    const existing = mine[c.period] || {};
     if (existing.source === "manual") continue;
-    // The student moved this course somewhere else (or marked it "not a class period").
-    const key = ((state.canvas && state.canvas.courses) || []).find(x => x.period === Number(period))?.key;
-    if (key && key in state.settings.coursePeriods && state.settings.coursePeriods[key] !== Number(period)) continue;
-    mine[period] = { name: c.name, teacher: c.teacher, room: existing.room || "", source: "canvas" };
+    mine[c.period] = { name: c.name, teacher: c.teacher, room: existing.room || "", source: "canvas" };
   }
   saveSettings(state.settings);
 }
@@ -327,6 +341,9 @@ function renderSettings() {
       <input type="text" data-period="${p}" data-field="room" value="${esc(c.room || "")}" placeholder="Room" aria-label="Period ${p} room"></div>`;
   }).join("");
   renderCourses();
+  const hiddenCount = Object.values(s.assignmentEdits).filter(e => e.hidden).length;
+  $("unhideAll").hidden = !hiddenCount;
+  $("unhideAll").textContent = `Show ${hiddenCount} hidden assignment${hiddenCount === 1 ? "" : "s"} again`;
   if (s.canvasUrl && state.canvas) setCanvasStatus(describeCanvas(state.canvas), false);
 }
 
@@ -368,11 +385,26 @@ $("courseEditor").onchange = e => {
 };
 
 $("openSettings").onclick = () => { renderSettings(); $("settings").showModal(); };
+// The ✕ buttons close their sheet. (They're type="button" so pressing Enter in a field doesn't close it.)
+document.querySelectorAll("[data-close]").forEach(btn => { btn.onclick = () => $(btn.dataset.close).close(); });
+// Tapping the dark area outside a sheet closes it too.
+document.querySelectorAll("dialog.sheet").forEach(d => d.addEventListener("click", e => { if (e.target === d) d.close(); }));
+// Enter in the Canvas link box connects.
+$("canvasUrl").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("connectCanvas").click(); } };
 $("settings").addEventListener("close", render);
 
 $("gradePick").onchange = e => { state.settings.grade = Number(e.target.value); saveSettings(state.settings); };
 $("themePick").onchange = e => { state.settings.theme = e.target.value; saveSettings(state.settings); applyTheme(); };
 $("showAssignments").onchange = e => { state.settings.showAssignments = e.target.checked; saveSettings(state.settings); };
+$("unhideAll").onclick = () => {
+  const edits = state.settings.assignmentEdits;
+  for (const [id, edit] of Object.entries(edits)) {
+    delete edit.hidden;
+    if (!Object.keys(edit).length) delete edits[id]; // nothing left to remember
+  }
+  saveSettings(state.settings);
+  renderSettings();
+};
 $("classEditor").oninput = e => {
   const { period, field } = e.target.dataset;
   const c = state.settings.classes[period] || {};
@@ -437,7 +469,8 @@ function saveAssignmentEdit(extra = {}) {
   render();
 }
 
-$("editSave").onclick = () => saveAssignmentEdit();
+// Save button and the Enter key both save.
+$("editForm").onsubmit = e => { e.preventDefault(); saveAssignmentEdit(); };
 $("editHide").onclick = () => saveAssignmentEdit({ hidden: true });
 $("editReset").onclick = () => {
   delete state.settings.assignmentEdits[editingId];

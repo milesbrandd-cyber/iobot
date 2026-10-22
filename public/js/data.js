@@ -5,9 +5,15 @@
 import { readCache, writeCache } from "./settings.js";
 
 async function getJSON(url, options) {
-  const response = await fetch(url, options);
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch {
+    throw new Error("You're offline. Try again when you have Wi-Fi.");
+  }
+  // A server error page may not be JSON, so don't let that crash the app.
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || `Something went wrong (HTTP ${response.status}). Try again in a minute.`);
   return body;
 }
 
