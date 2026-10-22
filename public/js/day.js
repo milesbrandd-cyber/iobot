@@ -117,8 +117,13 @@ export function nextDayOff(days, from) {
   return null;
 }
 
-/** Assignments due on a date, grouped by period when Canvas knows it. */
-export function assignmentsOn(canvas, date) {
+/**
+ * Assignments due on a date. Each gets its class's period: the one the student
+ * picked in Settings wins, otherwise whatever Canvas told us.
+ */
+export function assignmentsOn(canvas, date, coursePeriods = {}) {
   if (!canvas || !canvas.assignments) return [];
-  return canvas.assignments.filter(a => a.date === date);
+  return canvas.assignments
+    .filter(a => a.date === date)
+    .map(a => ({ ...a, period: Number(coursePeriods[a.courseKey]) || a.period || null }));
 }

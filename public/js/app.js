@@ -126,10 +126,10 @@ function renderTimeline(status) {
   const blocks = personalBlocks(day, state.settings);
   const isToday = state.selected === today();
   const nowSec = honoluluNow().seconds;
-  const due = state.settings.showAssignments ? assignmentsOn(state.canvas, state.selected) : [];
+  const due = state.settings.showAssignments ? assignmentsOn(state.canvas, state.selected, state.settings.coursePeriods) : [];
 
   // Only rebuild the list when something visible changed (not every second).
-  const key = [state.selected, status && status.index, status && status.state, blocks.length, due.length, JSON.stringify(state.settings.classes), state.settings.grade].join("|");
+  const key = [state.selected, status && status.index, status && status.state, blocks.length, due.length, JSON.stringify(state.settings.classes), JSON.stringify(state.settings.coursePeriods), state.settings.grade].join("|");
   if (key === lastTimelineKey) return;
   lastTimelineKey = key;
 
@@ -162,7 +162,7 @@ function renderSideCards() {
   $("lunchCard").hidden = !lunch || !lunch.length;
   if (lunch) $("lunchList").innerHTML = lunch.map(l => `<li><span class="place">${esc(l.place)}</span><span class="food">${esc(l.food)}</span></li>`).join("");
 
-  const due = state.settings.showAssignments ? assignmentsOn(state.canvas, state.selected) : [];
+  const due = state.settings.showAssignments ? assignmentsOn(state.canvas, state.selected, state.settings.coursePeriods) : [];
   $("dueCard").hidden = !due.length;
   $("dueList").innerHTML = due.map(a => `<li><span class="what">${esc(a.title)}</span>
     <span class="course">${esc(a.course)}</span><span class="when">${a.time ? esc(clock(a.time).text + " " + clock(a.time).suffix) : "All day"}</span></li>`).join("");
@@ -263,15 +263,22 @@ function mergeCanvasClasses(classes) {
   for (const [period, c] of Object.entries(classes || {})) {
     const existing = mine[period] || {};
     if (existing.source === "manual") continue;
+    // The student moved this course somewhere else (or marked it "not a class period").
+    const key = ((state.canvas && state.canvas.courses) || []).find(x => x.period === Number(period))?.key;
+    if (key && key in state.settings.coursePeriods && state.settings.coursePeriods[key] !== Number(period)) continue;
     mine[period] = { name: c.name, teacher: c.teacher, room: existing.room || "", source: "canvas" };
   }
   saveSettings(state.settings);
 }
 
 function describeCanvas(data) {
-  const n = Object.keys(data.classes || {}).length;
+  const courses = data.courses || [];
+  const placed = courses.filter(c => c.period || c.key in state.settings.coursePeriods).length;
   const a = (data.assignments || []).length;
-  return `Connected. Found ${n} class${n === 1 ? "" : "es"} and ${a} upcoming assignment${a === 1 ? "" : "s"}.`;
+  const n = courses.length || Object.keys(data.classes || {}).length;
+  let text = `Connected. Found ${n} class${n === 1 ? "" : "es"} and ${a} upcoming assignment${a === 1 ? "" : "s"}.`;
+  if (courses.length && placed < courses.length) text += ` Pick a period for ${courses.length - placed} of them under My classes.`;
+  return text;
 }
 function setCanvasStatus(text, isError) {
   $("canvasStatus").textContent = text;
@@ -315,8 +322,46 @@ function renderSettings() {
       <input type="text" data-period="${p}" data-field="name" value="${esc(c.name || "")}" placeholder="Period ${p}" aria-label="Period ${p} class name">
       <input type="text" data-period="${p}" data-field="room" value="${esc(c.room || "")}" placeholder="Room" aria-label="Period ${p} room"></div>`;
   }).join("");
+  renderCourses();
   if (s.canvasUrl && state.canvas) setCanvasStatus(describeCanvas(state.canvas), false);
 }
+
+/**
+ * One row per Canvas course with a period picker. Canvas fills in the period when
+ * the feed mentions it; for the rest the student picks it once and IoBot remembers.
+ */
+function renderCourses() {
+  const s = state.settings;
+  const courses = (state.canvas && state.canvas.courses) || [];
+  $("courseEditor").hidden = !courses.length;
+  $("courseEditor").innerHTML = courses.map((c, i) => {
+    // A saved choice wins (0 = "not a class period"); otherwise use what Canvas told us.
+    const p = c.key in s.coursePeriods ? Number(s.coursePeriods[c.key]) : (c.period || null);
+    const options = [`<option value="" ${p === null ? "selected" : ""}>Pick a period</option>`]
+      .concat([1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}" ${p === n ? "selected" : ""}>Period ${n}</option>`))
+      .concat(`<option value="0" ${p === 0 ? "selected" : ""}>No period</option>`);
+    return `<label class="course-row"><span class="cname">${esc(c.name)}${c.teacher ? `<small>${esc(c.teacher)}</small>` : ""}</span>
+      <select data-course="${i}" aria-label="Period for ${esc(c.name)}">${options.join("")}</select></label>`;
+  }).join("");
+}
+
+$("courseEditor").onchange = e => {
+  const s = state.settings;
+  const c = state.canvas.courses[e.target.dataset.course];
+  const p = Number(e.target.value);
+  // Clear the class from its old period, if this course was there.
+  for (const [period, cls] of Object.entries(s.classes)) {
+    if (cls && cls.name === c.name && Number(period) !== p) delete s.classes[period];
+  }
+  if (e.target.value === "") delete s.coursePeriods[c.key];
+  else s.coursePeriods[c.key] = p; // 0 = "not a class period", so Canvas's guess doesn't come back
+  if (p) {
+    const existing = s.classes[p] || {};
+    s.classes[p] = { name: c.name, teacher: c.teacher, room: existing.room || "", source: "manual" };
+  }
+  saveSettings(s);
+  renderSettings();
+};
 
 $("openSettings").onclick = () => { renderSettings(); $("settings").showModal(); };
 $("settings").addEventListener("close", render);
@@ -335,7 +380,7 @@ $("classEditor").oninput = e => {
 $("connectCanvas").onclick = async () => {
   const url = $("canvasUrl").value.trim();
   if (!url) {
-    state.settings.canvasUrl = ""; state.canvas = null; saveSettings(state.settings);
+    state.settings.canvasUrl = ""; state.canvas = null; saveSettings(state.settings); renderCourses();
     setCanvasStatus("Canvas disconnected.", false);
     return;
   }

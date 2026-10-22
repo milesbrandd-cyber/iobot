@@ -8,6 +8,7 @@ const KEY = "iobot.settings.v1";
 const DEFAULTS = {
   grade: null,            // 7-12, used for "Do I have chapel today?"
   classes: {},            // { "3": { name: "AP Gov", room: "W-204", teacher: "..." } }
+  coursePeriods: {},      // Canvas course -> period the student picked, e.g. { "AP Psychology-Jones": 4 }
   canvasUrl: "",          // the student's private Canvas calendar feed link
   showAssignments: true,  // the on/off switch for due dates
   theme: "auto",          // "auto" follows the device; "light" or "dark" forces it
