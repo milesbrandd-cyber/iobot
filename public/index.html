@@ -46,7 +46,7 @@
         <ul class="lunch" id="lunchList"></ul>
       </section>
       <section class="card" id="dueCard" hidden>
-        <h2>Due</h2>
+        <h2>Due <small class="muted">tap to add a note or change</small></h2>
         <ul class="due" id="dueList"></ul>
       </section>
       <p class="dayoff" id="dayOff" hidden></p>
@@ -111,6 +111,27 @@
       </fieldset>
 
       <p class="help small">Schedule from the official ʻIolani “Bell Schedule with Periods” calendar. Lunch from the Daily &amp; Weekly Bulletin.</p>
+    </form>
+  </dialog>
+
+  <!-- Edit one assignment: notes like "handwritten", a new due date, done, or hide -->
+  <dialog id="assignmentSheet" class="sheet" aria-labelledby="editHeading">
+    <form method="dialog" class="sheet-body">
+      <header class="sheet-head">
+        <h2 id="editHeading">Edit assignment</h2>
+        <button class="iconbtn" value="close" aria-label="Close">✕</button>
+      </header>
+      <p class="help" id="editCourse"></p>
+      <label class="field"><span>Title</span><input type="text" id="editTitle"></label>
+      <label class="field"><span>Note</span><textarea id="editNote" rows="3" placeholder="e.g. Handwritten, bring a printed copy, turn in at start of class"></textarea></label>
+      <label class="field"><span>Due date</span><input type="date" id="editDate"></label>
+      <label class="switch"><input type="checkbox" id="editDone"> <span>Done</span></label>
+      <div class="row">
+        <button type="button" id="editSave" class="btn">Save</button>
+        <button type="button" id="editHide" class="btn secondary">Hide</button>
+        <button type="button" id="editReset" class="btn secondary">Reset to Canvas</button>
+      </div>
+      <p class="help small">Your changes stay on this device and are kept when IoBot syncs with Canvas again.</p>
     </form>
   </dialog>
 
