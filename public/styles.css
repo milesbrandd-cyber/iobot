@@ -186,6 +186,11 @@ input[type="url"], input[type="text"] {
 .classes { display: grid; gap: 8px; }
 .classes .class-row { display: grid; grid-template-columns: 2.4rem 1fr 6.5rem; gap: 8px; align-items: center; }
 .classes .p { font: 800 1.3rem var(--display); text-align: center; }
+.courses { display: grid; gap: 8px; }
+.course-row { display: grid; grid-template-columns: 1fr 10.5rem; gap: 8px; align-items: center; }
+.course-row .cname { font-weight: 600; line-height: 1.2; }
+.course-row small { display: block; font-weight: 400; color: var(--muted); font-size: .85rem; }
+.course-row select { min-height: 44px; border: 1.5px solid var(--line); background: var(--bg); color: var(--text); border-radius: 10px; padding: 0 10px; font: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   .now::before { transition: none; }
