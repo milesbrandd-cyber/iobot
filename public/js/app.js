@@ -5,7 +5,7 @@
 import { honoluluNow, clock, countdown, addDays, dayOfWeek, weekMonday, formatDate, toSeconds } from "./time.js";
 import { loadSettings, saveSettings } from "./settings.js";
 import { loadSchedule, loadLunch, loadCanvas, savedSchedule, savedLunch, savedCanvas } from "./data.js";
-import { dayTitle, chapelInfo, personalBlocks, nowStatus, nextSchoolDay, nextDayOff, assignmentsOn, niceHoliday } from "./day.js";
+import { dayTitle, chapelInfo, personalBlocks, nowStatus, nextSchoolDay, nextDayOff, assignmentsOn, applyEdit, niceHoliday } from "./day.js";
 
 // ---------- App state ----------
 const state = {
@@ -126,10 +126,10 @@ function renderTimeline(status) {
   const blocks = personalBlocks(day, state.settings);
   const isToday = state.selected === today();
   const nowSec = honoluluNow().seconds;
-  const due = state.settings.showAssignments ? assignmentsOn(state.canvas, state.selected, state.settings.coursePeriods) : [];
+  const due = state.settings.showAssignments ? assignmentsOn(state.canvas, state.selected, state.settings.coursePeriods, state.settings.assignmentEdits) : [];
 
   // Only rebuild the list when something visible changed (not every second).
-  const key = [state.selected, status && status.index, status && status.state, blocks.length, due.length, JSON.stringify(state.settings.classes), JSON.stringify(state.settings.coursePeriods), state.settings.grade].join("|");
+  const key = [state.selected, status && status.index, status && status.state, blocks.length, due.length, JSON.stringify(state.settings.classes), JSON.stringify(state.settings.coursePeriods), JSON.stringify(state.settings.assignmentEdits), state.settings.grade].join("|");
   if (key === lastTimelineKey) return;
   lastTimelineKey = key;
 
@@ -147,7 +147,7 @@ function renderTimeline(status) {
     const minor = ["lunch", "break", "meeting"].includes(b.kind);
     const isCurrent = isToday && status && status.state === "in" && status.index === i;
     const isPast = isToday && nowSec >= toSeconds(b.end);
-    const dueCount = b.kind === "period" ? due.filter(a => a.period === b.period).length : 0;
+    const dueCount = b.kind === "period" ? due.filter(a => a.period === b.period && !a.done).length : 0;
     return `<li class="${minor ? "minor" : ""} ${isCurrent ? "current" : ""} ${isPast && !isCurrent ? "past" : ""}" ${isCurrent ? 'aria-current="time"' : ""}>
       <span class="t">${t(b.start)}<span>${t(b.end)}</span></span>
       <span class="title">${esc(b.title)}${b.subtitle ? `<span class="subtitle">${esc(b.subtitle)}</span>` : ""}</span>
@@ -162,10 +162,14 @@ function renderSideCards() {
   $("lunchCard").hidden = !lunch || !lunch.length;
   if (lunch) $("lunchList").innerHTML = lunch.map(l => `<li><span class="place">${esc(l.place)}</span><span class="food">${esc(l.food)}</span></li>`).join("");
 
-  const due = state.settings.showAssignments ? assignmentsOn(state.canvas, state.selected, state.settings.coursePeriods) : [];
+  const due = state.settings.showAssignments ? assignmentsOn(state.canvas, state.selected, state.settings.coursePeriods, state.settings.assignmentEdits) : [];
   $("dueCard").hidden = !due.length;
-  $("dueList").innerHTML = due.map(a => `<li><span class="what">${esc(a.title)}</span>
-    <span class="course">${esc(a.course)}</span><span class="when">${a.time ? esc(clock(a.time).text + " " + clock(a.time).suffix) : "All day"}</span></li>`).join("");
+  // Each assignment is a button: tap it to add a note, rename it, move it, or mark it done.
+  $("dueList").innerHTML = due.map(a => `<li class="${a.done ? "done" : ""}"><button type="button" class="due-item" data-id="${esc(a.id)}" aria-label="Edit ${esc(a.title)}">
+    <span class="what">${a.done ? "✓ " : ""}${esc(a.title)}</span>
+    <span class="course">${esc(a.course)}${a.date !== a.canvasDate ? " · moved from " + esc(formatDate(a.canvasDate, { month: "short", day: "numeric" })) : ""}</span>
+    ${a.note ? `<span class="note">${esc(a.note)}</span>` : ""}
+    <span class="when">${a.time ? esc(clock(a.time).text + " " + clock(a.time).suffix) : "All day"}</span></button></li>`).join("");
 
   // Countdown to the next day off (only meaningful when looking at today).
   const off = state.selected === today() && state.schedule ? nextDayOff(days(), today()) : null;
@@ -389,6 +393,57 @@ $("connectCanvas").onclick = async () => {
   saveSettings(state.settings);
   await refreshCanvas(true);
   renderSettings();
+};
+
+// ---------- Editing an assignment ----------
+let editingId = null;
+
+function findAssignment(id) {
+  const a = state.canvas && state.canvas.assignments.find(x => x.id === id);
+  return a ? applyEdit(a, state.settings.assignmentEdits[id], state.settings.coursePeriods) : null;
+}
+
+$("dueList").onclick = e => {
+  const btn = e.target.closest(".due-item");
+  if (!btn) return;
+  const a = findAssignment(btn.dataset.id);
+  if (!a) return;
+  editingId = a.id;
+  $("editCourse").textContent = `${a.course} · Canvas says: ${a.canvasTitle}, due ${formatDate(a.canvasDate, { weekday: "short", month: "short", day: "numeric" })}`;
+  $("editTitle").value = a.title;
+  $("editNote").value = a.note;
+  $("editDate").value = a.date;
+  $("editDone").checked = a.done;
+  $("assignmentSheet").showModal();
+};
+
+function saveAssignmentEdit(extra = {}) {
+  const a = state.canvas.assignments.find(x => x.id === editingId);
+  const title = $("editTitle").value.trim();
+  const date = $("editDate").value;
+  const edit = {
+    // Only store what differs from Canvas, so Canvas updates still come through.
+    title: title && title !== a.title ? title : undefined,
+    note: $("editNote").value.trim() || undefined,
+    date: date && date !== a.date ? date : undefined,
+    done: $("editDone").checked || undefined,
+    ...extra,
+  };
+  Object.keys(edit).forEach(k => edit[k] === undefined && delete edit[k]);
+  if (Object.keys(edit).length) state.settings.assignmentEdits[editingId] = edit;
+  else delete state.settings.assignmentEdits[editingId];
+  saveSettings(state.settings);
+  $("assignmentSheet").close();
+  render();
+}
+
+$("editSave").onclick = () => saveAssignmentEdit();
+$("editHide").onclick = () => saveAssignmentEdit({ hidden: true });
+$("editReset").onclick = () => {
+  delete state.settings.assignmentEdits[editingId];
+  saveSettings(state.settings);
+  $("assignmentSheet").close();
+  render();
 };
 
 // ---------- Start ----------

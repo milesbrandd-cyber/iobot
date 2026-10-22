@@ -121,9 +121,30 @@ export function nextDayOff(days, from) {
  * Assignments due on a date. Each gets its class's period: the one the student
  * picked in Settings wins, otherwise whatever Canvas told us.
  */
-export function assignmentsOn(canvas, date, coursePeriods = {}) {
+export function assignmentsOn(canvas, date, coursePeriods = {}, edits = {}) {
   if (!canvas || !canvas.assignments) return [];
   return canvas.assignments
-    .filter(a => a.date === date)
-    .map(a => ({ ...a, period: Number(coursePeriods[a.courseKey]) || a.period || null }));
+    .map(a => applyEdit(a, edits[a.id], coursePeriods))
+    .filter(a => a.date === date && !a.hidden)
+    .sort((a, b) => Number(a.done) - Number(b.done)); // finished work drops to the bottom
+}
+
+/**
+ * A student's own changes to an assignment win over Canvas. Teachers don't always put
+ * everything in Canvas ("handwritten", "bring a printed copy", "moved to Friday"),
+ * so the student can add a note, rename it, move the due date, mark it done, or hide it.
+ */
+export function applyEdit(a, edit = {}, coursePeriods = {}) {
+  return {
+    ...a,
+    canvasTitle: a.title,
+    canvasDate: a.date,
+    title: edit.title || a.title,
+    date: edit.date || a.date,
+    note: edit.note || "",
+    done: !!edit.done,
+    hidden: !!edit.hidden,
+    edited: !!(edit.title || edit.date || edit.note),
+    period: Number(coursePeriods[a.courseKey]) || a.period || null,
+  };
 }
