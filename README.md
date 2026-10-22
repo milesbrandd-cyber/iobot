@@ -10,7 +10,7 @@ The live ʻIolani Upper School bell schedule. Open it between classes and see wh
 |---|---|
 | **Now / Next countdown** | A big card shows the current block, a live countdown, and what's next. The red fill grows as the period goes on. |
 | **Any day** | Arrows, a date picker, and a Mon–Fri strip with each day's letter (A–F). |
-| **My classes, no typing** | Connect your Canvas calendar once. IoBot reads course names like `AP Microeconomics (P5)-Suzuki` and fills in Period 5 = AP Microeconomics. |
+| **My classes, almost no typing** | Connect your Canvas calendar once. IoBot finds every class and fills in its period wherever Canvas mentions one, like `(AP Microeconomics (P5)-Suzuki)`. For any class whose period never appears, you pick it once from a list. |
 | **Assignments due** | From the same Canvas feed. Shows on the matching day and tags the class's period. Can be switched off. |
 | **Chapel or homeroom?** | Pick your grade once. IoBot reads labels like `(Grs. 9&10 Chapel)` and tells *you* which one you have. |
 | **Lunch** | Pulled from the Weekly and Daily Bulletin PDFs on iolani.org. |
@@ -77,9 +77,11 @@ The Weekly Bulletin PDF has a `LUNCH SPECIALS:` section under each day's header.
 
 ## Canvas (`api/canvas.js`, `lib/canvas.js`)
 
-Every Canvas user has a private **Calendar Feed** link (Canvas → Calendar → Calendar Feed). Each event looks like `Unit 3 Problem Set [AP Microeconomics (P5)-Suzuki]`. IoBot reads:
-- the course in `[brackets]`, then the period from `(P5)` and the teacher after the dash, giving your classes
-- upcoming events, giving assignments due
+Every Canvas user has a private **Calendar Feed** link (Canvas → Calendar → Calendar Feed). Each event's title ends with the course in `[brackets]`, for example `WS3.8 [AP Psychology-Jones]`. IoBot reads it in two passes:
+1. **Learn the classes.** Each `[course]` becomes a class, with the teacher after the first dash that follows a space (so `Hawaiian Ensemble-Koanui-Souza` keeps the hyphenated name). The period comes from `(P5)` when it is in the brackets, or from a title like `Problem Set (AP Microeconomics (P5)-Suzuki) [AP Microeconomics-Suzuki]`, where some teachers put the full section name. One mention is enough to place every assignment in that class.
+2. **List upcoming work.** Events from today on become assignments due, tagged with the class's period.
+
+Real feeds often never mention the period for some classes. Those are listed under **My classes** in Settings with a period picker; the student chooses once and IoBot remembers on that device. A student's own choice always beats Canvas.
 
 Canvas blocks browsers from downloading the feed directly (CORS), so `/api/canvas` fetches it. **Privacy:** the link is sent in a POST body (never in a URL or log), only `iolani.instructure.com` feed links are accepted, nothing is stored on the server (`Cache-Control: no-store`), and the link is saved only on the student's own device. A student can rename any class; their own edit always beats Canvas.
 
