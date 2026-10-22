@@ -1,0 +1,14 @@
+{
+  "name": "iobot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IoBot: live ʻIolani Upper School bell schedule",
+  "scripts": {
+    "test": "node test/run-tests.js",
+    "dev": "vercel dev"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "unpdf": "^1.0.0"
+  }
+}
