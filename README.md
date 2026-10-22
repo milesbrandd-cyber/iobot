@@ -12,6 +12,7 @@ The live ʻIolani Upper School bell schedule. Open it between classes and see wh
 | **Any day** | Arrows, a date picker, and a Mon–Fri strip with each day's letter (A–F). |
 | **My classes, almost no typing** | Connect your Canvas calendar once. IoBot finds every class and fills in its period wherever Canvas mentions one, like `(AP Microeconomics (P5)-Suzuki)`. For any class whose period never appears, you pick it once from a list. |
 | **Assignments due** | From the same Canvas feed. Shows on the matching day and tags the class's period. Can be switched off. |
+| **Edit an assignment** | Tap any assignment to add a note ("handwritten, bring a printed copy"), rename it, move the due date, mark it done, or hide it. Edits stay on your device and survive every Canvas sync (matched by Canvas's event ID); "Reset to Canvas" undoes them. |
 | **Chapel or homeroom?** | Pick your grade once. IoBot reads labels like `(Grs. 9&10 Chapel)` and tells *you* which one you have. |
 | **Lunch** | Pulled from the Weekly and Daily Bulletin PDFs on iolani.org. |
 | **Days off** | Holidays and breaks show as "No school", plus a countdown to the next day off. |
