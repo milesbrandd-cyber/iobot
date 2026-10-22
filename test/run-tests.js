@@ -124,6 +124,16 @@ async function test(name, fn) {
   console.log("Now / Next (browser logic)");
   const day = await import("../public/js/day.js");
   const blocks = days["2026-10-20"].blocks;
+  await test("a student's assignment edits win over Canvas", () => {
+    const canvas = { assignments: [
+      { id: "a1", date: "2026-10-28", title: "WS3.8", course: "AP Psychology", courseKey: "AP Psychology-Jones", period: null },
+      { id: "a2", date: "2026-10-28", title: "Quiz", course: "AP Microeconomics", courseKey: "AP Microeconomics-Suzuki", period: 5 },
+    ] };
+    const edits = { a1: { note: "Handwritten", date: "2026-10-30" }, a2: { hidden: true } };
+    assert.strictEqual(day.assignmentsOn(canvas, "2026-10-28", {}, edits).length, 0); // one moved, one hidden
+    const moved = day.assignmentsOn(canvas, "2026-10-30", { "AP Psychology-Jones": 4 }, edits);
+    assert.deepStrictEqual([moved[0].note, moved[0].period, moved[0].canvasDate], ["Handwritten", 4, "2026-10-28"]);
+  });
   await test("during a block", () => {
     const s = day.nowStatus(blocks, 8 * 3600 + 30 * 60); // 8:30 am
     assert.strictEqual(s.state, "in");
