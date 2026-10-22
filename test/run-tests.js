@@ -103,6 +103,24 @@ async function test(name, fn) {
     assert.deepStrictEqual([r.assignments[0].date, r.assignments[0].time], ["2026-10-20", "23:59"]); // 09:59Z = 11:59 pm HST
   });
 
+  await test("period hidden in an assignment title is found", () => {
+    const ics = [
+      "BEGIN:VCALENDAR",
+      "BEGIN:VEVENT", "DTSTART;VALUE=DATE:20261028", "SUMMARY:Problem Set (AP Microeconomics (P5)-Suzuki) [AP Microeconomics-Suzuki]", "END:VEVENT",
+      "BEGIN:VEVENT", "DTSTART;VALUE=DATE:20261029", "SUMMARY:Quiz [AP Microeconomics-Suzuki]", "END:VEVENT",
+      "BEGIN:VEVENT", "DTSTART;VALUE=DATE:20261029", "SUMMARY:WS3.9 [AP Psychology-Jones]", "END:VEVENT",
+      "BEGIN:VEVENT", "DTSTART;VALUE=DATE:20261029", "SUMMARY:Essay [Hawaiian Ensemble-Koanui-Souza]", "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+    const r = readCanvasFeed(ics, "2026-10-20");
+    assert.deepStrictEqual(r.classes[5], { name: "AP Microeconomics", teacher: "Suzuki" });
+    assert.strictEqual(r.assignments[0].title, "Problem Set");           // section name removed from the title
+    assert.strictEqual(r.assignments.find(a => a.title === "Quiz").period, 5); // other work in the class gets the period too
+    const psych = r.courses.find(c => c.name === "AP Psychology");
+    assert.deepStrictEqual([psych.period, psych.teacher], [null, "Jones"]); // no period anywhere: student picks it
+    assert.strictEqual(r.courses.find(c => c.name === "Hawaiian Ensemble").teacher, "Koanui-Souza");
+  });
+
   console.log("Now / Next (browser logic)");
   const day = await import("../public/js/day.js");
   const blocks = days["2026-10-20"].blocks;
