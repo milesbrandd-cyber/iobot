@@ -67,7 +67,7 @@ SUMMARY:Period 3
 The contest requires the app to refresh, not import once. IoBot uses three cache layers:
 
 1. **Vercel CDN:** responses are cached for 10 minutes (`s-maxage=600`). With `stale-while-revalidate`, students get an instant answer while a fresh copy loads in the background. Thousands of students still means only ~6 feed downloads an hour.
-2. **Function memory:** a warm function reuses its last result for 10 minutes. If Google is down, it serves the last good copy instead of an error.
+2. **Function memory:** a warm function reuses its last result for 10 minutes. If Google is down or takes more than 25 seconds, it serves the last good copy instead of an error.
 3. **The device:** the browser saves the last schedule (`localStorage` + a service worker), so IoBot opens instantly and works offline.
 
 So a change in the school calendar reaches students within about 10 minutes. To test with the **Test iCal Link**, set `FEED_URL` in Vercel's environment variables.
