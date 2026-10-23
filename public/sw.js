@@ -6,7 +6,7 @@
 //   - Data (/api/...): "network first". Always try to get the latest schedule,
 //     but if campus Wi-Fi is down, fall back to the last copy we saved.
 
-const VERSION = "iobot-v5";
+const VERSION = "iobot-v7";
 const APP_FILES = [
   "/", "/index.html", "/styles.css", "/manifest.webmanifest",
   "/js/app.js", "/js/time.js", "/js/day.js", "/js/data.js", "/js/settings.js",
