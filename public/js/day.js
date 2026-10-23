@@ -121,10 +121,11 @@ export function nextDayOff(days, from) {
  * Assignments due on a date. Each gets its class's period: the one the student
  * picked in Settings wins, otherwise whatever Canvas told us.
  */
-export function assignmentsOn(canvas, date, coursePeriods = {}, edits = {}) {
-  if (!canvas || !canvas.assignments) return [];
-  return canvas.assignments
-    .map(a => applyEdit(a, edits[a.id], coursePeriods))
+export function assignmentsOn(canvas, date, coursePeriods = {}, edits = {}, mine = []) {
+  const fromCanvas = ((canvas && canvas.assignments) || []).map(a => applyEdit(a, edits[a.id], coursePeriods));
+  // Assignments the student added themselves (not on Canvas) sit alongside Canvas ones.
+  const own = mine.map(m => ({ ...m, custom: true, canvasDate: m.date, canvasTitle: m.title, hidden: false, done: !!m.done }));
+  return fromCanvas.concat(own)
     .filter(a => a.date === date && !a.hidden)
     .sort((a, b) => Number(a.done) - Number(b.done)); // finished work drops to the bottom
 }

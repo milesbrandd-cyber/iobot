@@ -10,6 +10,7 @@ const DEFAULTS = {
   classes: {},            // { "3": { name: "AP Gov", room: "W-204", teacher: "..." } }
   coursePeriods: {},      // Canvas course -> period the student picked, e.g. { "AP Psychology-Jones": 4 }
   assignmentEdits: {},    // assignment id -> the student's changes: { title, note, date, done, hidden }
+  myAssignments: [],      // assignments the student added: [{ id, title, date, period, note, done }]
   canvasUrl: "",          // the student's private Canvas calendar feed link
   showAssignments: true,  // the on/off switch for due dates
   theme: "auto",          // "auto" follows the device; "light" or "dark" forces it

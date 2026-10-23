@@ -130,6 +130,21 @@ function announce(s) {
   if ($("announce").textContent !== text) $("announce").textContent = text;
 }
 
+/** Everything due on a date: Canvas assignments (with the student's edits) plus their own. */
+function dueOn(date) {
+  if (!state.settings.showAssignments) return [];
+  const s = state.settings;
+  const mine = s.myAssignments.map(m => ({ ...m, course: classLabel(m.period) }));
+  return assignmentsOn(state.canvas, date, s.coursePeriods, s.assignmentEdits, mine);
+}
+
+/** "AP Psychology" for period 4, or "Period 4" if it has no name, or "My assignment". */
+function classLabel(period) {
+  if (!period) return "My assignment";
+  const c = state.settings.classes[period];
+  return c && c.name ? c.name : `Period ${period}`;
+}
+
 // ---------- Timeline ----------
 let lastTimelineKey = "";
 function renderTimeline(status) {
@@ -137,10 +152,10 @@ function renderTimeline(status) {
   const blocks = personalBlocks(day, state.settings);
   const isToday = state.selected === today();
   const nowSec = honoluluNow().seconds;
-  const due = state.settings.showAssignments ? assignmentsOn(state.canvas, state.selected, state.settings.coursePeriods, state.settings.assignmentEdits) : [];
+  const due = dueOn(state.selected);
 
   // Only rebuild the list when something visible changed (not every second).
-  const key = [state.selected, status && status.index, status && status.state, blocks.length, due.length, JSON.stringify(state.settings.classes), JSON.stringify(state.settings.coursePeriods), JSON.stringify(state.settings.assignmentEdits), state.settings.grade].join("|");
+  const key = [state.selected, status && status.index, status && status.state, blocks.length, due.length, JSON.stringify(state.settings.classes), JSON.stringify(state.settings.coursePeriods), JSON.stringify(state.settings.assignmentEdits), JSON.stringify(state.settings.myAssignments), state.settings.grade].join("|");
   if (key === lastTimelineKey) return;
   lastTimelineKey = key;
 
@@ -173,11 +188,12 @@ function renderSideCards() {
   $("lunchCard").hidden = !lunch || !lunch.length;
   if (lunch) $("lunchList").innerHTML = lunch.map(l => `<li><span class="place">${esc(l.place)}</span><span class="food">${esc(l.food)}</span></li>`).join("");
 
-  const due = state.settings.showAssignments ? assignmentsOn(state.canvas, state.selected, state.settings.coursePeriods, state.settings.assignmentEdits) : [];
-  $("dueCard").hidden = !due.length;
+  const due = dueOn(state.selected);
+  // The card shows whenever assignments are on, so there's always a place to tap "+ Add".
+  $("dueCard").hidden = !state.settings.showAssignments;
   // Each assignment is a button: tap it to add a note, rename it, move it, or mark it done.
-  $("dueList").innerHTML = due.map(a => `<li class="${a.done ? "done" : ""}"><button type="button" class="due-item" data-id="${esc(a.id)}" aria-label="Edit ${esc(a.title)}">
-    <span class="what">${a.done ? "✓ " : ""}${esc(a.title)}</span>
+  $("dueList").innerHTML = !due.length ? `<li class="empty">Nothing due.</li>` : due.map(a => `<li class="${a.done ? "done" : ""}"><button type="button" class="due-item" data-id="${esc(a.id)}" aria-label="Edit ${esc(a.title)}">
+    <span class="what">${a.done ? "✓ " : ""}${esc(a.title)}${a.custom ? `<span class="mine">ADDED BY YOU</span>` : ""}</span>
     <span class="course">${esc(a.course)}${a.date !== a.canvasDate ? " · moved from " + esc(formatDate(a.canvasDate, { month: "short", day: "numeric" })) : ""}</span>
     ${a.note ? `<span class="note">${esc(a.note)}</span>` : ""}
     <span class="when">${a.time ? esc(clock(a.time).text + " " + clock(a.time).suffix) : "All day"}</span></button></li>`).join("");
@@ -244,7 +260,8 @@ setInterval(renderFooter, 30000);
 async function refresh() {
   try {
     const { data, fromCache } = await loadSchedule();
-    state.schedule = data; state.offline = fromCache;
+    // Offline, the service worker answers with the saved copy, so also ask the browser.
+    state.schedule = data; state.offline = fromCache || !navigator.onLine;
   } catch {
     state.offline = true;
     if (!state.schedule) $("now").innerHTML = `<p class="lead">Can't reach the bell schedule. Check your Wi-Fi and reopen IoBot.</p>`;
@@ -305,6 +322,9 @@ function setCanvasStatus(text, isError) {
 
 // Refresh when the student comes back to the app, and every 10 minutes while open.
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+// Update the Live/Offline line as soon as Wi-Fi drops or comes back.
+addEventListener("online", refresh);
+addEventListener("offline", () => { state.offline = true; renderFooter(); });
 setInterval(refresh, 10 * 60000);
 
 // ---------- Navigation ----------
@@ -430,26 +450,77 @@ $("connectCanvas").onclick = async () => {
 // ---------- Editing an assignment ----------
 let editingId = null;
 
+let editingMine = false; // true when editing (or adding) the student's own assignment
+
 function findAssignment(id) {
   const a = state.canvas && state.canvas.assignments.find(x => x.id === id);
   return a ? applyEdit(a, state.settings.assignmentEdits[id], state.settings.coursePeriods) : null;
 }
 
+/** Open the editor. Canvas assignments can be hidden or reset; the student's own can be deleted. */
+function openEditor(a, mine) {
+  editingId = a.id;
+  editingMine = mine;
+  $("editHeading").textContent = mine && !a.title ? "Add assignment" : "Edit assignment";
+  $("editCourse").textContent = mine
+    ? "Your own assignment, for anything that isn't on Canvas. Only you can see it."
+    : `${a.course} · Canvas says: ${a.canvasTitle}, due ${formatDate(a.canvasDate, { weekday: "short", month: "short", day: "numeric" })}`;
+  $("editTitle").value = a.title || "";
+  $("editTitle").required = mine;
+  $("editNote").value = a.note || "";
+  $("editDate").value = a.date;
+  $("editDone").checked = !!a.done;
+  // The class picker is only for your own assignments; Canvas already knows the class.
+  $("editClassField").hidden = !mine;
+  $("editClass").innerHTML = `<option value="">No class</option>` + [1, 2, 3, 4, 5, 6, 7, 8]
+    .map(p => `<option value="${p}" ${Number(a.period) === p ? "selected" : ""}>${esc(classLabel(p))} (Period ${p})</option>`).join("");
+  $("editHide").hidden = mine;
+  $("editReset").hidden = mine;
+  $("editDelete").hidden = !mine || !a.title;
+  $("editFootnote").textContent = mine ? "Saved on this device." : "Your changes stay on this device and are kept when IoBot syncs with Canvas again.";
+  $("assignmentSheet").showModal();
+  if (mine && !a.title) $("editTitle").focus();
+}
+
 $("dueList").onclick = e => {
   const btn = e.target.closest(".due-item");
   if (!btn) return;
+  const own = state.settings.myAssignments.find(m => m.id === btn.dataset.id);
+  if (own) return openEditor(own, true);
   const a = findAssignment(btn.dataset.id);
-  if (!a) return;
-  editingId = a.id;
-  $("editCourse").textContent = `${a.course} · Canvas says: ${a.canvasTitle}, due ${formatDate(a.canvasDate, { weekday: "short", month: "short", day: "numeric" })}`;
-  $("editTitle").value = a.title;
-  $("editNote").value = a.note;
-  $("editDate").value = a.date;
-  $("editDone").checked = a.done;
-  $("assignmentSheet").showModal();
+  if (a) openEditor(a, false);
+};
+
+$("addAssignment").onclick = () => openEditor({ id: "my-" + Date.now(), date: state.selected, period: null }, true);
+
+/** Save the student's own assignment (new or changed). */
+function saveMine() {
+  if (!$("editForm").reportValidity()) return; // a title is required
+  const list = state.settings.myAssignments;
+  const item = {
+    id: editingId,
+    title: $("editTitle").value.trim(),
+    date: $("editDate").value || state.selected,
+    period: Number($("editClass").value) || null,
+    note: $("editNote").value.trim(),
+    done: $("editDone").checked,
+  };
+  const i = list.findIndex(m => m.id === editingId);
+  if (i === -1) list.push(item); else list[i] = item;
+  saveSettings(state.settings);
+  $("assignmentSheet").close();
+  render();
+}
+
+$("editDelete").onclick = () => {
+  state.settings.myAssignments = state.settings.myAssignments.filter(m => m.id !== editingId);
+  saveSettings(state.settings);
+  $("assignmentSheet").close();
+  render();
 };
 
 function saveAssignmentEdit(extra = {}) {
+  if (editingMine) return saveMine();
   const a = state.canvas.assignments.find(x => x.id === editingId);
   const title = $("editTitle").value.trim();
   const date = $("editDate").value;
