@@ -134,6 +134,14 @@ async function test(name, fn) {
     const moved = day.assignmentsOn(canvas, "2026-10-30", { "AP Psychology-Jones": 4 }, edits);
     assert.deepStrictEqual([moved[0].note, moved[0].period, moved[0].canvasDate], ["Handwritten", 4, "2026-10-28"]);
   });
+  await test("a student's own assignments show up with Canvas ones", () => {
+    const canvas = { assignments: [{ id: "c1", date: "2026-10-28", title: "WS3.8", course: "AP Psychology", courseKey: "k", period: 4 }] };
+    const mine = [{ id: "my-1", date: "2026-10-28", title: "Handwritten reflection", course: "AP Psychology", period: 4, done: false }];
+    const due = day.assignmentsOn(canvas, "2026-10-28", {}, {}, mine);
+    assert.deepStrictEqual(due.map(a => a.title), ["WS3.8", "Handwritten reflection"]);
+    assert.strictEqual(due[1].custom, true);
+    assert.strictEqual(day.assignmentsOn(null, "2026-10-28", {}, {}, mine).length, 1); // works without Canvas
+  });
   await test("during a block", () => {
     const s = day.nowStatus(blocks, 8 * 3600 + 30 * 60); // 8:30 am
     assert.strictEqual(s.state, "in");
