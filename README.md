@@ -4,6 +4,14 @@ The live ʻIolani Upper School bell schedule. Open it between classes and see wh
 
 **Live site:** https://iobot-liart.vercel.app
 
+<p>
+  <img src="docs/ipad.png" alt="IoBot on an iPad during class: a red countdown card for the current period, the day's schedule, and an assignment due" width="640">
+</p>
+<p>
+  <img src="docs/phone-dark.png" alt="IoBot on a phone in dark mode during passing time" width="260">
+  <img src="docs/add-assignment.png" alt="Adding your own assignment on a phone" width="260">
+</p>
+
 ## Features
 
 | Feature | How it works |
@@ -13,6 +21,7 @@ The live ʻIolani Upper School bell schedule. Open it between classes and see wh
 | **My classes, almost no typing** | Connect your Canvas calendar once. IoBot finds every class and fills in its period wherever Canvas mentions one, like `(AP Microeconomics (P5)-Suzuki)`. For any class whose period never appears, you pick it once from a list. |
 | **Assignments due** | From the same Canvas feed. Shows on the matching day and tags the class's period. Can be switched off. |
 | **Edit an assignment** | Tap any assignment to add a note ("handwritten, bring a printed copy"), rename it, move the due date, mark it done, or hide it. Edits stay on your device and survive every Canvas sync (matched by Canvas's event ID); "Reset to Canvas" undoes them. |
+| **Add your own assignments** | Not everything is on Canvas ("handwritten worksheet, due Friday"). Tap **+ Add** to save your own, pick the class, and it shows next to Canvas work, tagged on that period. |
 | **Chapel or homeroom?** | Pick your grade once. IoBot reads labels like `(Grs. 9&10 Chapel)` and tells *you* which one you have. |
 | **Lunch** | Pulled from the Weekly and Daily Bulletin PDFs on iolani.org. |
 | **Days off** | Holidays and breaks show as "No school", plus a countdown to the next day off. |
@@ -86,6 +95,8 @@ Real feeds often never mention the period for some classes. Those are listed und
 
 Canvas blocks browsers from downloading the feed directly (CORS), so `/api/canvas` fetches it. **Privacy:** the link is sent in a POST body (never in a URL or log), only `iolani.instructure.com` feed links are accepted, nothing is stored on the server (`Cache-Control: no-store`), and the link is saved only on the student's own device. A student can rename any class; their own edit always beats Canvas.
 
+**Usage stats:** the site uses [Vercel Web Analytics](https://vercel.com/docs/analytics), which counts page views without cookies and without collecting personal data.
+
 ## Project layout
 
 ```
@@ -106,7 +117,8 @@ public/         The website
   js/data.js      loads API data, falls back to saved copies
   js/settings.js  student settings in localStorage
   sw.js           service worker for offline use
-test/run-tests.js  16 tests, run against the real feed
+test/run-tests.js  19 tests, run against the real feed
+docs/              screenshots for this README
 dev-server.js      run locally without Vercel
 ```
 
@@ -115,7 +127,7 @@ dev-server.js      run locally without Vercel
 ```bash
 npm install
 node dev-server.js     # http://localhost:3000
-npm test               # 16 tests
+npm test               # 19 tests
 ```
 
 Deploy: import the repo into Vercel. No build step or settings needed; `vercel.json` points it at `public/`.
