@@ -47,7 +47,10 @@
         <ul class="lunch" id="lunchList"></ul>
       </section>
       <section class="card" id="dueCard" hidden>
-        <h2>Due <small class="muted">tap to add a note or change</small></h2>
+        <div class="cardhead">
+          <h2>Due <small class="muted">tap one to edit</small></h2>
+          <button type="button" id="addAssignment" class="btn secondary small">+ Add</button>
+        </div>
         <ul class="due" id="dueList"></ul>
       </section>
       <p class="dayoff" id="dayOff" hidden></p>
@@ -127,16 +130,21 @@
       <label class="field"><span>Title</span><input type="text" id="editTitle"></label>
       <label class="field"><span>Note</span><textarea id="editNote" rows="3" placeholder="e.g. Handwritten, bring a printed copy, turn in at start of class"></textarea></label>
       <label class="field"><span>Due date</span><input type="date" id="editDate"></label>
+      <label class="field" id="editClassField"><span>Class</span><select id="editClass"></select></label>
       <label class="switch"><input type="checkbox" id="editDone"> <span>Done</span></label>
       <div class="row">
         <button type="submit" id="editSave" class="btn">Save</button>
         <button type="button" id="editHide" class="btn secondary">Hide</button>
         <button type="button" id="editReset" class="btn secondary">Reset to Canvas</button>
+        <button type="button" id="editDelete" class="btn secondary">Delete</button>
       </div>
-      <p class="help small">Your changes stay on this device and are kept when IoBot syncs with Canvas again.</p>
+      <p class="help small" id="editFootnote"></p>
     </form>
   </dialog>
 
   <script type="module" src="/js/app.js"></script>
+  <!-- Vercel Web Analytics: counts page views without cookies or personal data. -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
